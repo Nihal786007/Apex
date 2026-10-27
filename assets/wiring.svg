@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="950" viewBox="0 0 1400 950" role="img" aria-labelledby="title desc">
+<title id="title">APEX V5 signal and motor connection overview</title><desc id="desc">Exact ESP32 GPIO assignments, L298N paired motors and voltage-level conditions. A connection overview, not a validated module circuit or PCB.</desc>
+<defs><style>text{font-family:Arial,sans-serif;fill:#e7f2fc;font-size:18px}.small{font-size:15px;fill:#a8bfd2}.heading{font-size:27px;font-weight:bold;fill:#64dfc8}.label{font-size:20px;font-weight:bold}.box{fill:#122336;stroke:#35526b;stroke-width:2;rx:14}.sig{fill:none;stroke:#64dfc8;stroke-width:3}.warn{fill:#f1ce8a;font-size:16px}</style></defs>
+<rect width="1400" height="950" fill="#09121e"/>
+<text x="45" y="55" class="heading">APEX ULTIMATE V5 · CONNECTION OVERVIEW</text>
+<text x="45" y="87" class="small">Wire with power disconnected. Pins preserved. Complete electrical sign-off before enabling motor output.</text>
+<rect x="470" y="135" width="350" height="600" class="box"/>
+<text x="500" y="177" class="label">CLASSIC ESP32 / WROOM</text>
+<text x="500" y="209" class="small">USB power during initial bench tests</text>
+<text x="500" y="255">GPIO25 / 26 / 27 → ENA / IN1 / IN2</text>
+<text x="500" y="291">GPIO14 / 12 / 13 → IN3 / IN4 / ENB</text>
+<text x="500" y="350">GPIO18 → servo signal</text>
+<text x="500" y="404">GPIO5 → ultrasonic TRIG</text>
+<text x="500" y="440">GPIO19 ← divided ultrasonic ECHO</text>
+<text x="500" y="500">GPIO21 / 22 ↔ OLED SDA / SCL</text>
+<text x="500" y="558">GPIO34 ← LEFT IR OUT</text>
+<text x="500" y="594">GPIO35 ← RIGHT IR OUT</text>
+<text x="500" y="653">GND → common reference</text>
+<text x="500" y="696" class="small">GPIO34/35: INPUT only, no internal pulls</text>
+<rect x="930" y="135" width="425" height="210" class="box"/>
+<text x="955" y="176" class="label">L298N COMPLETE MODULE</text>
+<text x="955" y="212">ENA25 · IN1 26 · IN2 27</text>
+<text x="955" y="246">IN3 14 · IN4 12 · ENB13</text>
+<text x="955" y="282" class="warn">Remove ENA and ENB jumpers</text>
+<text x="955" y="312" class="small">5V-EN regulator jumper is separate</text>
+<path d="M820 255H930 M820 291H930" class="sig"/>
+<rect x="930" y="390" width="425" height="130" class="box"/>
+<text x="955" y="430" class="label">LEFT MOTOR PAIR</text>
+<text x="955" y="465">OUT1 / OUT2 → two motors in parallel</text>
+<text x="955" y="494" class="small">Match rotation; paired currents add</text>
+<rect x="930" y="550" width="425" height="130" class="box"/>
+<text x="955" y="590" class="label">RIGHT MOTOR PAIR</text>
+<text x="955" y="625">OUT3 / OUT4 → two motors in parallel</text>
+<text x="955" y="654" class="small">Match rotation; paired currents add</text>
+<path d="M1125 345V390 M1318 345V550" class="sig"/>
+<rect x="45" y="135" width="340" height="125" class="box"/>
+<text x="67" y="172" class="label">MG90S PAN SERVO</text><text x="67" y="207">Signal18 · regulated 5 V · GND</text>
+<text x="67" y="237" class="small">1000 / 1500 / 2000 µs calibration</text>
+<path d="M385 198H425V350H470" class="sig"/>
+<rect x="45" y="300" width="340" height="155" class="box"/>
+<text x="67" y="339" class="label">HC-SR04</text><text x="67" y="374">TRIG5 · ECHO19 through divider</text>
+<text x="67" y="410" class="small">ECHO → 2.2k → GPIO19 → 3.3k → GND</text>
+<text x="67" y="437" class="warn">No direct 5 V ECHO to ESP32</text>
+<path d="M385 370H430V404H470 M385 420H410V440H470" class="sig"/>
+<rect x="45" y="495" width="340" height="100" class="box"/>
+<text x="67" y="533" class="label">SH1106 OLED · 128×64</text>
+<text x="67" y="568">SDA21 / SCL22 · 3.3 V-safe I2C</text>
+<path d="M385 545H440V500H470" class="sig"/>
+<rect x="45" y="635" width="340" height="115" class="box"/>
+<text x="67" y="674" class="label">LEFT / RIGHT IR</text>
+<text x="67" y="708">OUT34 / OUT35 · common GND</text>
+<text x="67" y="735" class="warn">Verify 3.3 V-safe OUT levels</text>
+<path d="M385 682H420V558H470 M385 716H440V594H470" class="sig"/>
+<rect x="45" y="795" width="1310" height="115" fill="#302719" stroke="#755c31" rx="12"/>
+<text x="68" y="831" class="warn">POWER IS NOT VERIFIED: raw 11.6 V / 3S must not be assumed suitable for unknown or typical 3–6 V TT motors.</text>
+<text x="68" y="861" class="small">Use a matched motor rail, adequate paired current capability, proper L298N logic power, common ground, fuse and physical cutoff.</text>
+<text x="68" y="889" class="small">GPIO12/5 are boot straps. Review module loading. This is a signal/power overview, not a production schematic or safety certification.</text>
+</svg>

@@ -1,0 +1,267 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <WebServer.h>
+#include <Wire.h>
+#include <U8g2lib.h>
+#include <esp_arduino_version.h>
+#include <esp_system.h>
+#include <initializer_list>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
+
+#if ESP_ARDUINO_VERSION_MAJOR < 3
+#error "Install esp32 by Espressif Systems version 3.x in Boards Manager."
+#endif
+
+// Motor controls enabled after Arm. Match supply to motor voltage/current ratings.
+// Reversed from the previous sketch to match your reported mounting.
+constexpr bool SERVO_REVERSED = false; // false: LEFT increases pulse width
+constexpr bool LEFT_MOTOR_REVERSED = false;
+constexpr bool RIGHT_MOTOR_REVERSED = false;
+constexpr bool SENSOR_ON_SERVO = true; // false ONLY for a fixed forward sensor
+constexpr int SERVO_CENTER_US = 1500; // adjust mechanically at Center first
+constexpr int SERVO_TRAVEL_US = 600;  // default endpoints: 900 and 2100 us
+constexpr int SERVO_SAFE_MIN_US = 800, SERVO_SAFE_MAX_US = 2200;
+static_assert(SERVO_CENTER_US >= 1200 && SERVO_CENTER_US <= 1800, "Invalid servo center");
+static_assert(SERVO_TRAVEL_US >= 100 && SERVO_TRAVEL_US <= 700, "Invalid servo travel");
+constexpr int ENA=25, IN1=26, IN2=27, IN3=14, IN4=12, ENB=13;
+constexpr int SERVO_PIN=18, TRIG=5, ECHO=19, SDA_PIN=21, SCL_PIN=22;
+constexpr uint32_t HOLD_TIMEOUT=450, SENSOR_STALE=350, SERVO_SETTLE=600;
+constexpr float STOP_CM=25.0f, CLEAR_CM=30.0f;
+WebServer server(80);
+U8G2_SH1106_128X64_NONAME_F_HW_I2C oled(U8G2_R0,U8X8_PIN_NONE);
+SemaphoreHandle_t guard;
+bool oledOK=false, pwmOK=false, armed=false, rangeValid=false, obstacle=true;
+int pan=0, speedValue=0; // motors start at zero PWM; pan -100=LEFT, +100=RIGHT
+char requested='S', actual='S';
+float distanceCm=0;
+uint32_t lastHold=0, lastRange=0, servoChanged=0, lastSequence=0;
+String session, oledText="APEX READY", reason="Disarmed";
+
+void lockState(){ xSemaphoreTake(guard,portMAX_DELAY); }
+void unlockState(){ xSemaphoreGive(guard); }
+void motorOff(){
+  ledcWrite(ENA,0); ledcWrite(ENB,0);
+  digitalWrite(IN1,LOW); digitalWrite(IN2,LOW);
+  digitalWrite(IN3,LOW); digitalWrite(IN4,LOW);
+}
+void trip(const String &why){ armed=false; requested='S'; reason=why; }
+String forwardBlock(uint32_t now){
+  if(SENSOR_ON_SERVO && pan!=0) return "Center sensor to drive forward";
+  if(SENSOR_ON_SERVO && uint32_t(now-servoChanged)<SERVO_SETTLE) return "Sensor settling";
+  if(!rangeValid || uint32_t(now-lastRange)>SENSOR_STALE) return "No fresh ultrasonic echo";
+  if(obstacle) return "Obstacle: forward locked";
+  return "";
+}
+void driveSide(int a,int b,int value,bool reversed){
+  if(reversed) value=-value;
+  digitalWrite(a,value>0); digitalWrite(b,value<0);
+}
+void motorTask(void*){
+  char previous='S'; uint32_t changedAt=0;
+  for(;;){
+    lockState(); uint32_t now=millis();
+    if(armed && requested!='S' && uint32_t(now-lastHold)>HOLD_TIMEOUT) trip("Hold timed out: re-arm");
+    if(armed && requested=='F'){
+      String why=forwardBlock(now); if(why.length()) trip(why+": re-arm");
+    }
+    char target=(armed && pwmOK && speedValue>0)?requested:'S';
+    if(target!=previous){ motorOff(); actual='S'; previous=target; changedAt=now; }
+    // Neutral interval before any change of motor direction.
+    if(target=='S'){ motorOff(); actual='S'; }
+    else if(uint32_t(now-changedAt)>=40){
+      int left=1,right=1;
+      if(target=='B') left=right=-1;
+      if(target=='L'){left=-1;right=1;}
+      if(target=='R'){left=1;right=-1;}
+      driveSide(IN1,IN2,left,LEFT_MOTOR_REVERSED);
+      driveSide(IN3,IN4,right,RIGHT_MOTOR_REVERSED);
+      ledcWrite(ENA,speedValue); ledcWrite(ENB,speedValue); actual=target;
+    }
+    unlockState(); vTaskDelay(pdMS_TO_TICKS(10));
+  }
+}
+void setPan(int value){ // caller holds guard; servo position is not measured
+  value=constrain(value,-100,100);
+  if(value!=pan){
+    pan=value; servoChanged=millis();
+    if(SENSOR_ON_SERVO){rangeValid=false; obstacle=true;}
+    trip("Servo moved: re-arm");
+  }
+  int pulse=SERVO_CENTER_US+(SERVO_REVERSED?1:-1)*pan*SERVO_TRAVEL_US/100;
+  uint32_t us=constrain(pulse,SERVO_SAFE_MIN_US,SERVO_SAFE_MAX_US);
+  ledcWrite(SERVO_PIN,(us*65535UL+10000)/20000UL);
+}
+void sampleRange(){
+  digitalWrite(TRIG,LOW); delayMicroseconds(3);
+  digitalWrite(TRIG,HIGH); delayMicroseconds(10); digitalWrite(TRIG,LOW);
+  uint32_t echo=pulseIn(ECHO,HIGH,25000UL); // bounded; motor watchdog runs separately
+  float cm=echo*0.0343f/2.0f;
+  lockState();
+  rangeValid=echo>0 && cm>=2 && cm<=400;
+  distanceCm=cm; lastRange=millis();
+  if(!rangeValid || cm<=STOP_CM) obstacle=true;
+  else if(cm>=CLEAR_CM) obstacle=false;
+  unlockState();
+}
+
+const char PAGE[] PROGMEM=R"APEX(
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>APEX Control</title><style>
+*{box-sizing:border-box}body{margin:0;background:#091320;color:#edf5ff;font:15px system-ui}
+main{max-width:1300px;margin:auto;min-height:100svh;padding:12px;display:grid;grid-template-rows:auto 1fr auto;gap:10px}
+header,.row{display:flex;align-items:center;justify-content:space-between;gap:8px}h1{font-size:22px;margin:0;color:#64dfc5}h2{font-size:16px;margin:0 0 10px}
+.grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:10px;align-content:center}
+section{background:#142337;border:1px solid #29405a;border-radius:16px;padding:14px;min-width:0}
+button,input{font:inherit}button{border:0;border-radius:10px;padding:12px;background:#294863;color:white;min-height:44px;cursor:pointer}
+button:active{background:#267b79}button:disabled{opacity:.45}button.drive{touch-action:none;user-select:none;-webkit-user-select:none}
+.buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stop{background:#b63849;font-weight:800}.wide{width:100%;margin-top:8px}
+.servo{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.servo button{padding:10px 4px}
+input[type=range]{width:100%;accent-color:#64dfc5;margin:12px 0}input[type=text]{width:100%;padding:10px;border-radius:8px;border:1px solid #44607b;background:#091320;color:white}
+.number{font-size:36px;font-weight:750;color:#64dfc5}.muted,footer{color:#a6b9ce;font-size:12px}#status{font-size:13px;min-height:36px;margin-top:8px;overflow-wrap:anywhere}label{display:block;margin-top:10px}#oledPreview{white-space:pre-wrap;overflow-wrap:anywhere;font-family:monospace;min-height:36px;margin-top:8px}
+@media(min-width:760px) and (min-height:430px){main{height:100svh;min-height:0}.grid{min-height:0}section{padding:12px}}
+@media(max-width:759px){.grid{grid-template-columns:1fr 1fr}.telemetry{grid-column:1/-1}main{padding:8px}section{padding:10px}}
+@media(max-width:420px){.grid{grid-template-columns:1fr}.telemetry{grid-column:auto}}
+@media(max-height:480px) and (min-width:760px){main{padding:6px;gap:5px}section{padding:8px}h2{margin-bottom:5px}button{padding:8px}input[type=range]{margin:6px 0}.number{font-size:26px}footer{display:none}}
+</style></head><body><main>
+<header><h1>APEX / CONTROL</h1><span id="link">Connecting…</span><button id="connect">Reconnect</button></header>
+<div class="grid"><section><h2>Drive · hold a button</h2>
+<div class="buttons"><button class="drive" data-dir="F">▲ Forward</button><button class="drive" data-dir="B">▼ Reverse</button><button class="drive" data-dir="L">◀ Turn left</button><button class="drive" data-dir="R">Turn right ▶</button></div>
+<div class="row" style="margin-top:8px"><button id="arm">Arm motors</button><button id="stop" class="stop">STOP</button></div>
+<label>Speed <output id="speedOut">0%</output><input id="speed" type="range" min="0" max="255" value="0"></label><div class="muted">PWM setting; not voltage or current protection.</div><div id="status">Disarmed</div></section>
+<section><h2>Servo · physical direction</h2><div class="servo"><button data-pan="-100">Left</button><button data-pan="0">Center</button><button data-pan="100">Right</button></div>
+<label>Fine position <output id="panOut">Center</output><input id="pan" type="range" min="-100" max="100" step="10" value="0"></label>
+<label for="text">OLED message · 40 characters</label><input id="text" type="text" maxlength="40" value="APEX READY"><button id="sendText" class="wide">Show on OLED</button></section>
+<section class="telemetry"><h2>Ultrasonic distance</h2><div class="number" id="distance">—</div><div id="sensor" class="muted">Waiting for a reading</div><div id="oledPreview">APEX READY</div><div id="hardware" class="muted"></div></section></div>
+<footer>Release to stop · 450 ms hold timeout · Forward needs a clear, fresh reading · One controller at a time</footer></main>
+<script>
+const $=id=>document.getElementById(id);let token='',seq=0,held=null,busy=false,ready=false,armed=false;
+async function request(path,data){const r=await fetch(path,{method:'POST',body:new URLSearchParams(data),cache:'no-store',signal:AbortSignal.timeout(1200)});if(!r.ok){const e=Error(await r.text());e.status=r.status;throw e;}return r;}
+function enableDrive(){document.querySelectorAll('.drive').forEach(b=>b.disabled=!ready||!armed);}
+async function command(kind,value=''){if(!token)return;return request('/cmd',{token,seq:++seq,kind,value});}
+function release(disarm=false){held=null;if(disarm){armed=false;enableDrive();}command(disarm?'stop':'release').catch(()=>{});}
+function failure(e){ready=false;armed=false;held=null;enableDrive();$('link').textContent='Disconnected';$('status').textContent=e.message+' · reconnect and re-arm';command('stop').catch(()=>{});}
+async function connect(){release(true);ready=false;token='';enableDrive();try{const r=await request('/claim',{});token=await r.text();seq=0;ready=true;$('speed').value=0;$('speedOut').textContent='0%';$('link').textContent='Connected';}catch(e){failure(e);}}
+async function heartbeat(){if(!held||busy||!ready)return;busy=true;try{await command('drive',held.dir);}catch(e){if(e.status===409){release(true);$('status').textContent=e.message;}else failure(e);}finally{busy=false;}}
+document.querySelectorAll('.drive').forEach(b=>{
+ b.addEventListener('pointerdown',e=>{if(held||!armed||!ready)return;e.preventDefault();b.setPointerCapture(e.pointerId);held={dir:b.dataset.dir,id:e.pointerId};heartbeat();});
+ for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,e=>{if(held&&held.id===e.pointerId)release();});
+ b.addEventListener('contextmenu',e=>e.preventDefault());
+});
+$('stop').onclick=()=>release(true);$('connect').onclick=connect;
+$('arm').onclick=async()=>{try{await command('arm');}catch(e){$('status').textContent=e.message;}};
+$('speed').oninput=()=>{$('speedOut').textContent=Math.round($('speed').value/255*100)+'%';};
+$('speed').onchange=()=>command('speed',$('speed').value).catch(failure);
+function panTo(p){release(true);$('pan').value=p;$('panOut').textContent=p==0?'Center':(p<0?'Left ':'Right ')+Math.abs(p)+'%';command('pan',p).catch(failure);}
+document.querySelectorAll('[data-pan]').forEach(b=>b.onclick=()=>panTo(+b.dataset.pan));
+$('pan').onchange=()=>panTo(+$('pan').value);
+$('sendText').onclick=()=>command('text',$('text').value).catch(failure);
+window.addEventListener('blur',()=>release(true));document.addEventListener('visibilitychange',()=>{if(document.hidden)release(true);});
+window.addEventListener('pagehide',()=>{held=null;if(token)navigator.sendBeacon('/cmd',new URLSearchParams({token,seq:++seq,kind:'stop',value:''}));});
+setInterval(heartbeat,120);
+async function poll(){if(ready){try{const r=await fetch('/status?token='+encodeURIComponent(token),{cache:'no-store',signal:AbortSignal.timeout(1200)});if(!r.ok)throw Error('Controller session changed');const s=await r.json();armed=s.armed;enableDrive();if(!armed)held=null;$('link').textContent=armed?'Armed':'Connected · disarmed';$('status').textContent=s.reason;$('distance').textContent=s.valid?s.cm.toFixed(1)+' cm':'No echo';$('sensor').textContent=s.forward||'Forward clear';$('oledPreview').textContent=s.text;$('hardware').textContent=s.oled?'OLED online':'OLED not detected';}catch(e){failure(e);}}setTimeout(poll,250);}
+enableDrive();connect();poll();
+</script></body></html>
+)APEX";
+
+String jsonString(const String &s){
+  String out="\"";
+  for(size_t i=0;i<s.length();i++){char c=s[i];if(c=='"'||c=='\\')out+='\\';if((uint8_t)c>=32)out+=c;}
+  return out+'"';
+}
+void reply(int code,const String &s){server.sendHeader("Cache-Control","no-store");server.send(code,"text/plain",s);}
+bool authenticated(){return session.length() && server.arg("token")==session;}
+bool numberArg(const String&s,long &v){
+  if(!s.length() || s.length()>10)return false;
+  char *end; v=strtol(s.c_str(),&end,10);return *end==0;
+}
+void setupRoutes(){
+  server.on("/",HTTP_GET,[]{server.send_P(200,"text/html",PAGE);});
+  server.on("/claim",HTTP_POST,[]{
+    lockState();trip("Connected: arm when ready");
+    session=String(esp_random(),HEX)+String(esp_random(),HEX);lastSequence=0;speedValue=0;
+    String result=session;unlockState();reply(200,result);
+  });
+  server.on("/cmd",HTTP_POST,[]{
+    if(!authenticated()){reply(403,"Reconnect controller");return;}
+    long sequence=0;
+    if(!numberArg(server.arg("seq"),sequence)||sequence<=0){reply(400,"Bad sequence");return;}
+    lockState();
+    if(uint32_t(sequence)<=lastSequence){unlockState();reply(409,"Stale command ignored");return;}
+    lastSequence=sequence;
+    String k=server.arg("kind"),v=server.arg("value"),error=""; long n=0;
+    if(k=="stop")trip("Stopped: re-arm");
+    else if(k=="release"){requested='S';reason="Released";}
+    else if(k=="arm"){
+      if(!pwmOK)error="PWM initialization failed";
+      else{armed=true;requested='S';reason="Armed: hold to drive";}
+    }
+    else if(k=="drive"){
+      if(!armed)error="Disarmed: press Arm motors";
+      else if(speedValue==0){error="Set speed above zero";trip(error);}
+      else if(v.length()!=1 || String("FBLR").indexOf(v[0])<0)error="Invalid direction";
+      else if(v=="F" && (error=forwardBlock(millis())).length())trip(error+": re-arm");
+      else{requested=v[0];lastHold=millis();reason=requested=='F'?"Forward selected":requested=='B'?"Backward selected":requested=='L'?"Left turn selected":"Right turn selected";}
+    }
+    else if(k=="speed" && numberArg(v,n) && n>=0 && n<=255){speedValue=n;}
+    else if(k=="pan" && numberArg(v,n) && n>=-100 && n<=100){setPan(n);}
+    else if(k=="text"){
+      oledText="";for(size_t i=0;i<v.length() && oledText.length()<40;i++)if(v[i]>=32 && v[i]<=126)oledText+=v[i];
+    }
+    else error="Invalid command";
+    if(error.length())reason=error;
+    unlockState();reply(error.length()?409:200,error.length()?error:"OK");
+  });
+  server.on("/status",HTTP_GET,[]{
+    if(!authenticated()){reply(403,"Reconnect");return;}
+    lockState();bool fresh=rangeValid && uint32_t(millis()-lastRange)<=SENSOR_STALE;
+    String j="{\"armed\":"+String(armed?"true":"false")+",\"valid\":"+(fresh?"true":"false")+
+      ",\"cm\":"+String(distanceCm,1)+",\"reason\":"+jsonString(reason)+",\"motion\":"+jsonString(String(actual))+
+      ",\"forward\":"+jsonString(forwardBlock(millis()))+",\"text\":"+jsonString(oledText)+
+      ",\"oled\":"+(oledOK?"true":"false")+"}";
+    unlockState();server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",j);
+  });
+  server.onNotFound([]{reply(404,"Not found");});
+}
+void setup(){
+  Serial.begin(115200);
+  for(int p:{ENA,IN1,IN2,IN3,IN4,ENB}){pinMode(p,OUTPUT);digitalWrite(p,LOW);}
+  pinMode(TRIG,OUTPUT);digitalWrite(TRIG,LOW);pinMode(ECHO,INPUT);
+  guard=xSemaphoreCreateMutex();if(!guard){Serial.println("FATAL: no mutex");while(true)delay(1000);}
+  // Classic ESP32 channels 0/1 share motor timer; channel 4 uses a separate servo timer.
+  bool a=ledcAttachChannel(ENA,20000,8,0),b=ledcAttachChannel(ENB,20000,8,1);
+  bool c=ledcAttachChannel(SERVO_PIN,50,16,4);pwmOK=a&&b&&c;
+  motorOff();servoChanged=millis();setPan(0);
+  if(!pwmOK){Serial.println("FATAL: PWM setup failed");while(true)delay(1000);}
+  if(xTaskCreate(motorTask,"motorSafety",4096,nullptr,3,nullptr)!=pdPASS){
+    motorOff();Serial.println("FATAL: safety task failed");while(true)delay(1000);
+  }
+  Wire.begin(SDA_PIN,SCL_PIN);Wire.setTimeOut(25);
+  for(uint8_t address:{uint8_t(0x3C),uint8_t(0x3D)}){
+    Wire.beginTransmission(address);
+    if(Wire.endTransmission()==0){oled.setI2CAddress(address<<1);oled.begin();Wire.setTimeOut(25);oledOK=true;break;}
+  }
+  Serial.println(oledOK?"OLED OK":"OLED NOT DETECTED");
+  WiFi.mode(WIFI_AP);
+  if(!WiFi.softAP("APEX-CONTROL","Apex2026Robot")){Serial.println("FATAL: AP failed");while(true)delay(1000);}
+  setupRoutes();server.begin();
+  Serial.println("APEX TABLET READY\nWiFi: APEX-CONTROL\nPassword: Apex2026Robot");
+  Serial.print("Open: http://");Serial.println(WiFi.softAPIP());
+  Serial.println("Motors start stopped. Match supply to motor rating before power-on.");
+}
+void loop(){
+  static uint32_t sensorTick=0,displayTick=0;
+  server.handleClient();uint32_t now=millis();
+  if(uint32_t(now-sensorTick)>=80){sensorTick=now;sampleRange();}
+  if(oledOK && uint32_t(now-displayTick)>=250){
+    displayTick=now;lockState();String text=oledText,why=reason;
+    String range=rangeValid?String(distanceCm,1)+" cm":"NO ECHO";bool on=armed;unlockState();
+    oled.clearBuffer();oled.setFont(u8g2_font_6x10_tf);
+    oled.drawStr(0,10,on?"APEX - ARMED":"APEX - STOPPED");oled.drawStr(0,22,range.c_str());
+    oled.drawStr(0,34,text.substring(0,20).c_str());oled.drawStr(0,44,text.substring(20,40).c_str());
+    oled.drawStr(0,60,why.substring(0,21).c_str());oled.sendBuffer();
+  }
+  delay(1);
+}

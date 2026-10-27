@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="850" viewBox="0 0 1400 850" role="img" aria-labelledby="title desc">
+<title id="title">Proposed APEX regulated power architecture</title><desc id="desc">A conditional motor-rated rail and separate regulated 5 volt rail, with common ground and USB ESP32 bench power. Ratings remain to be verified.</desc>
+<defs><style>text{font-family:Arial,sans-serif;fill:#eaf5ff;font-size:19px}.h{font-size:28px;font-weight:bold;fill:#64dfc8}.s{font-size:16px;fill:#abc2d4}.w{font-size:17px;fill:#f4d58e}.b{fill:#122336;stroke:#3a566f;stroke-width:2;rx:13}.p{fill:none;stroke:#ed858b;stroke-width:4}.v{fill:none;stroke:#68d6c1;stroke-width:4}.g{fill:none;stroke:#93a9bd;stroke-width:4}</style><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#ed858b"/></marker></defs>
+<rect width="1400" height="850" fill="#09121e"/>
+<text x="45" y="55" class="h">APEX V5 · PROPOSED POWER ARCHITECTURE</text>
+<text x="45" y="88" class="w">Conditional design — motor rating, paired current, regulation and module jumper configuration remain unverified.</text>
+<rect x="45" y="160" width="240" height="120" class="b"/><text x="68" y="200">3S 18650 PACK</text><text x="68" y="234" class="s">11.6 V reported</text><text x="68" y="260" class="s">Up to 12.6 V fully charged</text>
+<rect x="345" y="160" width="210" height="120" class="b"/><text x="365" y="194">PROTECTION</text><text x="365" y="219">AND FUSE</text><text x="365" y="246" class="s">Ratings selected for</text><text x="365" y="270" class="s">actual wiring and loads</text><path d="M285 210H345" class="p" marker-end="url(#arr)"/>
+<rect x="650" y="135" width="280" height="150" class="b"/><text x="673" y="175">MOTOR CUTOFF +</text><text x="673" y="206">MOTOR-RATED RAIL</text><text x="673" y="241" class="s">Regulator/supply voltage and</text><text x="673" y="266" class="s">current: to be specified</text>
+<path d="M555 210H650" class="p" marker-end="url(#arr)"/>
+<rect x="1015" y="135" width="330" height="150" class="b"/><text x="1037" y="175">L298N VS → TT MOTORS</text><text x="1037" y="212" class="s">Two motors per channel</text><text x="1037" y="240" class="s">Startup/stall currents add</text><text x="1037" y="268" class="w">No raw 3S assumption</text><path d="M930 210H1015" class="p" marker-end="url(#arr)"/>
+<rect x="650" y="365" width="280" height="140" class="b"/><text x="673" y="405">REGULATED 5 V RAIL</text><text x="673" y="440" class="s">Servo startup/stall headroom</text><text x="673" y="473" class="s">Input range covers pack + margin</text>
+<path d="M590 210V435H650" class="p" marker-end="url(#arr)"/>
+<rect x="1015" y="365" width="330" height="140" class="b"/><text x="1037" y="403">MG90S + HC-SR04</text><text x="1037" y="437">L298N LOGIC, IF SUPPORTED</text><text x="1037" y="472" class="w">Correct 5V-EN arrangement first</text><path d="M930 435H1015" class="v"/>
+<rect x="45" y="365" width="240" height="140" class="b"/><text x="68" y="405">USB BENCH POWER</text><text x="68" y="443">ESP32 USB INPUT</text><text x="68" y="476" class="s">Avoid unverified 5 V backfeed</text>
+<path d="M170 505V605H1190V505 M790 505V605 M170 280H310V605" class="g"/>
+<text x="355" y="641" class="s">COMMON GROUND — route high-current returns through suitable distribution wiring, not ESP32 traces.</text>
+<rect x="45" y="690" width="1300" height="115" fill="#302719" stroke="#755c31" rx="12"/>
+<text x="68" y="725" class="w">MOTOR_POWER_VERIFIED=false keeps ENA/ENB disabled in the distributed firmware.</text>
+<text x="68" y="754" class="s">No current, motor voltage or temperature sensing is fitted. Switch/PWM/timeouts do not replace an appropriate electrical design.</text>
+<text x="68" y="782" class="s">Never feed external logic 5 V against an enabled onboard regulator output. See POWER_AND_WIRING.md before physical enable.</text>
+</svg>

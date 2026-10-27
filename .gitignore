@@ -1,0 +1,19 @@
+# Build products and local development tools
+build/
+.build/
+node_modules/
+*.exe
+*.dll
+*.o
+*.d
+*.bin
+*.elf
+*.map
+*.zip
+
+# Private review/ingest material and raw incoming footage stay outside the repo
+/verification/
+/APEX_Original_Media/
+__pycache__/
+.DS_Store
+Thumbs.db
