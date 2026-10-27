@@ -12,6 +12,10 @@ APEX combines a four-wheel chassis, a motor driver, a servo-mounted ultrasonic s
 
 *The actual prototype, extracted from supplied terrace footage. This earlier-build image does not establish V5 autonomous performance.*
 
+**[▶ Watch / download the 80-second engineering demonstration](https://github.com/Nihal786007/Apex/releases/download/v5.0.0-rc1/APEX_Engineering_Demonstration_2026.mp4)** · 1080p · caption-led with instrumental music · [V5 software-candidate prerelease](https://github.com/Nihal786007/Apex/releases/tag/v5.0.0-rc1)
+
+The film distinguishes historical physical demonstrations from software tests and simulated UI footage. Physical V5 autonomous validation remains pending.
+
 [Firmware](firmware/APEX_Ultimate_V5/APEX_Ultimate_V5.ino) · [Wiring and power](docs/POWER_AND_WIRING.md) · [Build and upload](docs/INSTALLATION.md) · [Test evidence](docs/BUILD_REPORT.md) · [80-second video storyboard](docs/DEMO_AND_RELEASE.md)
 
 ## The code behind the build
