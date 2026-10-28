@@ -54,6 +54,28 @@ The [verification report](docs/BUILD_REPORT.md) records **232 passing core asser
 
 The development record progresses from a Blink test through chassis assembly, component mounting, power and signal wiring, sensor/display experiments and tablet-controlled movement. The early [session notes](progress/Session_01_ESP32_First_Blink/Session_01_Notes.md) record USB-driver troubleshooting; later footage shows the integration work behind the assembled robot.
 
+### A closer look at the physical build
+
+<p align="center">
+  <img src="assets/build-details/assembled-side-view.jpg" width="320" alt="Owner-supplied side view of the assembled APEX robot showing wheels, gearmotors, raised upper deck and servo-mounted ultrasonic sensor">
+  &nbsp;
+  <img src="assets/build-details/top-deck-electronics.jpg" width="320" alt="APEX upper deck with ESP32 board, OLED, red pushbutton and a converter module with a digital display">
+</p>
+
+*Left: the assembled chassis, wheel clearance and separation between the two decks. Right: the upper-deck electronics and front sensor wiring. These photographs show the actual construction; they do not identify the running firmware or establish electrical or autonomous acceptance.*
+
+<details>
+<summary><strong>Inside APEX — battery, motor driver and wiring (three photographs)</strong></summary>
+
+| Lower-deck overview | Battery and motor-driver detail | Both decks opened |
+|---|---|---|
+| <img src="assets/build-details/lower-deck-overview.jpg" width="210" alt="Lower deck with three-cell holder, central L298N-style driver, lever connectors, wiring and sensor boards along the chassis edge"> | <img src="assets/build-details/battery-and-motor-driver.jpg" width="210" alt="Closer view of the three-cell holder, rocker switch, lever connectors and L298N-style motor driver"> | <img src="assets/build-details/decks-open.jpg" width="210" alt="Upper deck lifted beside the lower chassis to show the ultrasonic module, OLED, converter, battery holder and motor-driver wiring"> |
+| Placement of the battery holder, driver, connectors and sensor boards. | Power-distribution layout and access to the motor-driver terminals. | How the upper control deck and lower power/motor deck fit together. |
+
+The photographs record assembly and inspection states, including loose leads. Wire colors, connector positions and a converter display do not verify complete connectivity, output voltage or safe motor power. The [documented V5 wiring](docs/POWER_AND_WIRING.md) remains the configuration reference; additional visible sensor boards do not establish which inputs were used. [Photo sources and processing](docs/DEVELOPMENT_LOG.md#28-october-2026--additional-physical-build-photographs).
+
+</details>
+
 ### Documented V5 hardware target
 
 | Subsystem | Interface / configuration |

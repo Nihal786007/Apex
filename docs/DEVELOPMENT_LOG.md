@@ -78,7 +78,7 @@ The original README/roadmap described a TB6612FNG/two-motor build. V5 targets an
 
 ### Selected media provenance
 
-Four authentic presentation assets plus one existing labeled V5 UI preview are embedded in the README. Frame exports preserve the recorded hardware. There is no generative reconstruction, component replacement, background cleanup or color retouching. The hero is cropped from a decoded frame to remove excess sky/floor while retaining the visible robot; JPEG exports reduce repository weight. The driver photo remains byte-identical to the original.
+The initial README selection comprises four authentic presentation assets plus one existing labeled V5 UI preview. Five additional owner-supplied build photographs were added on 28 October, as recorded below. Frame exports preserve the recorded hardware. There is no generative reconstruction, component replacement, background cleanup or color retouching. The hero is cropped from a decoded frame to remove excess sky/floor while retaining the visible robot; JPEG exports reduce repository weight. The driver photo remains byte-identical to the original.
 
 | Presentation asset | Original source | Source position | Processing |
 |---|---|---|---|
@@ -107,4 +107,18 @@ The hero and tablet frame are from the earlier physical build, not a V5 autonomo
 - Repeated episode versions, promotional effects, memes and unreviewed source music/audio are not used as technical evidence in the main storyboard.
 - Unselected originals and the private intake inventory stay outside the public checkout. Existing public historical media is retained rather than silently removed.
 
-The default four-file V5 source, its recorded hashes and BENCH configuration are unchanged by this presentation work. Public publication requires the owner's final approval.
+The default four-file V5 source, its recorded hashes and BENCH configuration are unchanged by this presentation work. The owner approved publication on 27 October; subsequent presentation additions preserve those source files.
+
+## 28 October 2026 — additional physical-build photographs
+
+The owner supplied five further authentic photographs to clarify the mechanical layout, upper-deck electronics and internal wiring. The date here is the intake date, not an independently established capture date or firmware revision. All five originals are preserved outside the public checkout. Public copies honor EXIF orientation, resize proportionally to a maximum dimension of 1200 pixels and use optimized JPEG quality 84 with metadata omitted. There is no cropping, retouching, component replacement or generative alteration. Combined public size: 1,100,362 bytes.
+
+| Public asset | Original photograph | What is visible |
+|---|---|---|
+| [Top-deck electronics](../assets/build-details/top-deck-electronics.jpg) | `codex-clipboard-2e8af450-9276-4bdd-b3e1-2771b32c62e6.jpg` | ESP32, OLED, pushbutton, converter/display and sensor wiring |
+| [Lower-deck overview](../assets/build-details/lower-deck-overview.jpg) | `codex-clipboard-1a102628-b87c-451a-b052-6c25725cb07b.jpg` | Battery holder, L298N-style driver, connectors, wiring and edge-mounted sensor boards |
+| [Battery and motor driver](../assets/build-details/battery-and-motor-driver.jpg) | `codex-clipboard-bc735cac-861d-415c-99b8-4b7e26c9e6b5.jpg` | Closer view of battery placement, rocker switch, driver and lever connectors |
+| [Decks opened](../assets/build-details/decks-open.jpg) | `codex-clipboard-e506a07d-eb7c-4355-8404-e5326cc7d70f.jpg` | Upper-deck modules beside the exposed lower power/motor deck |
+| [Assembled side view](../assets/build-details/assembled-side-view.jpg) | `codex-clipboard-66d1aa1c-6629-492f-8e87-2b061500afde.jpg` | Chassis spacing, wheels, gearmotors, raised deck and ultrasonic mount |
+
+These photos provide construction evidence, including inspection states with loose leads. They do not establish wire continuity, the converter's selected input/output display mode, actual motor voltage/current, exact sensor assignments, running firmware or successful physical autonomy. The V5 two-input sensor configuration and pending acceptance status remain unchanged.
