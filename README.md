@@ -62,7 +62,7 @@ The development record progresses from a Blink test through chassis assembly, co
   <img src="assets/build-details/top-deck-electronics.jpg" width="320" alt="APEX upper deck with ESP32 board, OLED, red pushbutton and a converter module with a digital display">
 </p>
 
-*Left: the assembled chassis, wheel clearance and separation between the two decks. Right: the upper-deck electronics and front sensor wiring. These photographs show the actual construction; they do not identify the running firmware or establish electrical or autonomous acceptance.*
+*Side view: the assembled chassis, wheel clearance and separation between the two decks. Upper-deck view: electronics and front sensor wiring. These photographs show the actual construction; they do not identify the running firmware or establish electrical or autonomous acceptance.*
 
 <details>
 <summary><strong>Inside APEX — battery, motor driver and wiring (three photographs)</strong></summary>
